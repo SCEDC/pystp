@@ -112,11 +112,10 @@ class STPClient:
                 if self.fdout:
                     self.fdout.write(data)
             elif line_words[0] == 'ENDdata':
-                if self.fdout:
-                    self.fdout.close()
+                continue
             elif line_words[0] == 'ERR':
                 self._process_error(line_words)
-
+                
     
     def set_verbose(self, verbose):
         self.verbose = verbose
@@ -183,6 +182,8 @@ class STPClient:
     def _end_command(self):
         """ Perform cleanup after an STP command is ended.
         """
+        if self.fdout:
+            self.fdout.close()
         self.recent_files.clear()
 
 
@@ -208,8 +209,8 @@ class STPClient:
         pass
 
 
-    def _get_event_phase(self, cmd, evids, times=None, lat=None, lon=None, depth=None, etype=None, gtype=None, output_file=None):
-        """ Handles event and phase commands, which have similar syntax.
+    def _get_event_phase(self, cmd, evids, times=None, lat=None, lon=None, depth=None, etype=None, gtype=None, output_file=None, is_xml=False):
+        """ Handles the event and phase commands, which have similar syntax.
         """
 
         if output_file is not None:
@@ -219,7 +220,9 @@ class STPClient:
             cmd += ' -e {} '.format(' '.join(evids_str))
         else:
             if times is not None:
-                pass
+                start_time = times[0].strftime("%Y/%m/%d,%H:%M:%S.%f")
+                end_time = times[1].strftime("%Y/%m/%d,%H:%M:%S.%f")
+                cmd += ' -t0 {} {}'.format(start_time, end_time)
             if lat is not None:
                 cmd += ' -lat {} {}'.format(lat[0], lat[1])
             if lon is not None:
@@ -229,7 +232,7 @@ class STPClient:
             if etype is not None:
                 cmd += ' -type {} '.format(','.join(etype))
             if gtype is not None:
-                cmd += ' -type {} '.format(','.join(gtype))
+                cmd += ' -gtype {} '.format(','.join(gtype))
             
         if self.verbose:
             print(cmd)
@@ -242,24 +245,12 @@ class STPClient:
         self._end_command()        
     
 
-    def get_events(self, evids=None, times=None, lat=None, lon=None, depth=None, etype=None, gtype=None, output_file=None):
+    def get_events(self, evids=None, times=None, lat=None, lon=None, depth=None, etype=None, gtype=None, output_file=None, is_xml=False):
         self._get_event_phase('event', evids, times, lat, lon, depth, etype, gtype, output_file)
 
 
-    def get_phases(self, evids=None, times=None, lat=None, lon=None, depth=None, etype=None, gtype=None, output_file=None):
-        cmd = 'phase'
-        if output_file is not None:
-            cmd += ' -f {} '.format(output_file)
-        if evids is not None:
-            evids_str = [str(e) for e in evids]
-            cmd += ' -e {} '.format(' '.join(evids_str))
-        
-        print(cmd)
-        cmd += '\n'
-        self.socket.send(cmd.encode('utf-8'))
-        self._receive_data()
-
-        self._end_command()
+    def get_phases(self, evids=None, times=None, lat=None, lon=None, depth=None, etype=None, gtype=None, output_file=None, is_xml=False):
+        self._get_event_phase('phase', evids, times, lat, lon, depth, etype, gtype, output_file)
 
 
     def disconnect(self):
