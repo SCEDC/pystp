@@ -209,7 +209,7 @@ class STPClient:
         pass
 
 
-    def _get_event_phase(self, cmd, evids, times=None, lat=None, lon=None, depth=None, etype=None, gtype=None, output_file=None, is_xml=False):
+    def _get_event_phase(self, cmd, evids, times=None, lats=None, lons=None, mags=None, depths=None, types=None, gtypes=None, output_file=None, is_xml=False):
         """ Handles the event and phase commands, which have similar syntax.
         """
 
@@ -223,16 +223,18 @@ class STPClient:
                 start_time = times[0].strftime("%Y/%m/%d,%H:%M:%S.%f")
                 end_time = times[1].strftime("%Y/%m/%d,%H:%M:%S.%f")
                 cmd += ' -t0 {} {}'.format(start_time, end_time)
-            if lat is not None:
-                cmd += ' -lat {} {}'.format(lat[0], lat[1])
-            if lon is not None:
-                cmd += ' -lon {} {}'.format(lon[0], lon[1])
-            if depth is not None:
-                cmd += ' -depth {} {}'.format(depth[0], depth[1])
-            if etype is not None:
-                cmd += ' -type {} '.format(','.join(etype))
-            if gtype is not None:
-                cmd += ' -gtype {} '.format(','.join(gtype))
+            if lats is not None:
+                cmd += ' -lat {} {}'.format(lats[0], lats[1])
+            if lons is not None:
+                cmd += ' -lon {} {}'.format(lons[0], lons[1])
+            if mags is not None:
+                cmd += ' -mag {} {}'.format(mags[0], mags[1])
+            if depths is not None:
+                cmd += ' -depth {} {}'.format(depths[0], depths[1])
+            if types is not None:
+                cmd += ' -type {} '.format(','.join(types))
+            if gtypes is not None:
+                cmd += ' -gtype {} '.format(','.join(gtypes))
             
         if self.verbose:
             print(cmd)
@@ -245,12 +247,12 @@ class STPClient:
         self._end_command()        
     
 
-    def get_events(self, evids=None, times=None, lat=None, lon=None, depth=None, etype=None, gtype=None, output_file=None, is_xml=False):
-        self._get_event_phase('event', evids, times, lat, lon, depth, etype, gtype, output_file)
+    def get_events(self, evids=None, times=None, lats=None, lons=None, mags=None, depths=None, types=None, gtypes=None, output_file=None, is_xml=False):
+        self._get_event_phase('event', evids, times, lats, lons, mags, depths, types, gtypes, output_file)
 
 
-    def get_phases(self, evids=None, times=None, lat=None, lon=None, depth=None, etype=None, gtype=None, output_file=None, is_xml=False):
-        self._get_event_phase('phase', evids, times, lat, lon, depth, etype, gtype, output_file)
+    def get_phases(self, evids=None, times=None, lats=None, lons=None, mags=None, depths=None, types=None, gtypes=None, output_file=None, is_xml=False):
+        self._get_event_phase('phase', evids, times, lats, lons, mags, depths, types, gtypes, output_file)
 
 
     def disconnect(self):
