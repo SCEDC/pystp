@@ -164,20 +164,26 @@ class STPClient:
         waveform_stream = None
         if as_stream:
             waveform_stream = Stream()
+            ntraces = 0
             for f in self.recent_files:
                 try:
-                    print('Reading {}'.format(f))
+                    if self.verbose:
+                        print('Reading {}'.format(f))
                     tr = obspy.core.read(f)
                     waveform_stream += tr
+                    ntraces += 1
                 except TypeError:
-                    print('{} is in unknown format. Skipping.'.format(f))
-                
-                print("keep_files: {}".format(keep_files))
+                    if self.verbose:
+                        print('{} is in unknown format. Skipping.'.format(f))
+
                 if not keep_files:
-                    print("Removing {} after reading".format(f))
+                    if self.verbose:
+                        print("Removing {} after reading".format(f))
                     os.remove(f)
-        
+            print('Processed {} waveform traces'.format(ntraces))
+            
         return waveform_stream
+
 
     def _end_command(self):
         """ Perform cleanup after an STP command is ended.
@@ -187,8 +193,8 @@ class STPClient:
         self.recent_files.clear()
 
 
-    def get_trig(self, evid, net='%', sta='%', chan='%', loc='%', data_format='sac', as_stream=True, keep_files=False):
-        cmd = 'trig {}'.format(evid)
+    def get_trig(self, evids, net='%', sta='%', chan='%', loc='%', radius=None,  data_format='sac', as_stream=True, keep_files=False):
+        cmd = 'trig '
         if net != '%':
             cmd += ' -net {}'.format(net)
         if sta != '%':
@@ -197,6 +203,11 @@ class STPClient:
             cmd += ' -chan {}'.format(chan)
         if loc != '%':
             cmd += ' -loc {}'.format(loc)
+        if radius is not None:
+            cmd += ' -radius {}'.format(radius)
+        
+        cmd += ' '
+        cmd += ' '.join([str(e) for e in evids])
         cmd += '\n'
 
         result = self._send_data_command(cmd, data_format, as_stream)
