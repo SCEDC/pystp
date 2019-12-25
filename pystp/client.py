@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import socket
 import struct
 import os
@@ -20,6 +22,7 @@ class STPClient:
         self.motd = ''     # Message of the Day
         self.recent_files = []   # List of most recently written files
         self.verbose = verbose
+        self.connected = False
         #self.base_dir = base_dir   # Directory where output will be written
 
     def _send_sample(self):
@@ -130,10 +133,13 @@ class STPClient:
     def connect(self, show_motd=True):
         """ Opens socket connection to STP server.
         """
+        if self.connected:
+            print('Already connected')
+            return
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((self.host, self.port))
-        self.fdr = self.socket.makefile(mode='rb', newline='\n')
+        self.fdr = self.socket.makefile(mode='rb')
 
         self.socket.sendall(b'STP stpisgreat 1.6.3 stpc\n')
        
@@ -146,6 +152,7 @@ class STPClient:
         self._set_motd()
         if show_motd:
             print(self.motd, end='')
+        self.connected = True
 
 
     def _send_data_command(self, cmd, data_format, as_stream=True, keep_files = False):
@@ -194,23 +201,30 @@ class STPClient:
 
 
     def get_trig(self, evids, net='%', sta='%', chan='%', loc='%', radius=None,  data_format='sac', as_stream=True, keep_files=False):
-        cmd = 'trig '
-        if net != '%':
-            cmd += ' -net {}'.format(net)
-        if sta != '%':
-            cmd += ' -sta {}'.format(sta)
-        if chan != '%':
-            cmd += ' -chan {}'.format(chan)
-        if loc != '%':
-            cmd += ' -loc {}'.format(loc)
-        if radius is not None:
-            cmd += ' -radius {}'.format(radius)
-        
-        cmd += ' '
-        cmd += ' '.join([str(e) for e in evids])
-        cmd += '\n'
+        if not self.connected:
+            print('STP is not connected')
+            return None
 
-        result = self._send_data_command(cmd, data_format, as_stream)
+        base_cmd = 'trig '
+        if net != '%':
+            base_cmd += ' -net {}'.format(net)
+        if sta != '%':
+            base_cmd += ' -sta {}'.format(sta)
+        if chan != '%':
+            base_cmd += ' -chan {}'.format(chan)
+        if loc != '%':
+            base_cmd += ' -loc {}'.format(loc)
+        if radius is not None:
+            base_cmd += ' -radius {}'.format(radius)
+        
+        
+        #cmd += ' '.join([str(e) for e in evids])
+        #cmd += '\n'
+        result = {}
+        for ev in evids:
+            cmd = "{} {}\n".format(base_cmd, ev)
+
+            result[ev] = self._send_data_command(cmd, data_format, as_stream)
         self._end_command()
         
         return result
@@ -254,15 +268,21 @@ class STPClient:
             print('Sending command')
         self.socket.send(cmd.encode('utf-8'))
         self._receive_data()
-
+        
         self._end_command()        
     
 
     def get_events(self, evids=None, times=None, lats=None, lons=None, mags=None, depths=None, types=None, gtypes=None, output_file=None, is_xml=False):
-        self._get_event_phase('event', evids, times, lats, lons, mags, depths, types, gtypes, output_file)
+        if not self.connected:
+            print('STP is not connected')
+            return None
+        return self._get_event_phase('event', evids, times, lats, lons, mags, depths, types, gtypes, output_file)
 
 
     def get_phases(self, evids=None, times=None, lats=None, lons=None, mags=None, depths=None, types=None, gtypes=None, output_file=None, is_xml=False):
+        if not self.connected:
+            print('STP is not connected')
+            return None
         self._get_event_phase('phase', evids, times, lats, lons, mags, depths, types, gtypes, output_file)
 
 
@@ -273,7 +293,7 @@ class STPClient:
             self.fdr.close()
         if self.socket:
             self.socket.close()
-
+        self.connected = False
 
 if __name__ == '__main__':
     stp = STPClient('athabasca.gps.caltech.edu', 9999)
