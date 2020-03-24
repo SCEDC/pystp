@@ -2,10 +2,12 @@ from __future__ import print_function
 
 import socket
 import struct
+import re
 import os
 import obspy.core
 from obspy.core import Stream
-
+from obspy.core.event import Catalog
+from . import utils
 
 VALID_FORMATS = ['sac', 'mseed', 'seed', 'ascii', 'v0', 'v1']
 
@@ -23,7 +25,7 @@ class STPClient:
         self.recent_files = []   # List of most recently written files
         self.verbose = verbose
         self.connected = False
-        #self.base_dir = base_dir   # Directory where output will be written
+        
 
     def _send_sample(self):
         """ Sends the integer 2 to the server
@@ -38,6 +40,7 @@ class STPClient:
         """ Reads text sent from the STP server delimited
         by MESS and ENDmess.
         """
+
         message = ''
         while True:
             line = self.fdr.readline()
@@ -47,6 +50,7 @@ class STPClient:
             
             message += line.decode('ascii')
         return message
+
 
     def _process_error(self, fields):
         err_msg = ' '.join(fields[1:])
@@ -105,7 +109,9 @@ class STPClient:
                 if not os.path.isdir(self.output_dir):
                     os.mkdir(self.output_dir)
             elif line_words[0] == 'MESS':
-                print(self._read_message(), end='')
+                msg = self._read_message()
+                self.message += msg
+                print(msg, end='')
             
             elif line_words[0] == 'DATA':
                 ndata = int(line_words[1])
@@ -131,8 +137,9 @@ class STPClient:
 
 
     def connect(self, show_motd=True):
-        """ Opens socket connection to STP server.
+        """ Open socket connection to STP server.
         """
+
         if self.connected:
             print('Already connected')
             return
@@ -158,9 +165,7 @@ class STPClient:
     def _send_data_command(self, cmd, data_format, as_stream=True, keep_files = False):
         data_format = data_format.lower()
         if data_format not in VALID_FORMATS:
-            print('Invalid data format')
-            return
-            # TODO: Raise exception
+            raise Exception('Invalid data format')
         if self.verbose:
             print("data_format={} cmd={}".format(data_format, cmd))
         self.socket.sendall('{}\n'.format(data_format).encode('utf-8'))
@@ -182,11 +187,13 @@ class STPClient:
                 except TypeError:
                     if self.verbose:
                         print('{} is in unknown format. Skipping.'.format(f))
+                        
 
                 if not keep_files:
                     if self.verbose:
                         print("Removing {} after reading".format(f))
-                    os.remove(f)
+                    if os.path.isfile(f):
+                        os.remove(f)
             print('Processed {} waveform traces'.format(ntraces))
             
         return waveform_stream
@@ -198,7 +205,10 @@ class STPClient:
         if self.fdout:
             self.fdout.close()
         self.recent_files.clear()
+        self._clear_message()
 
+    def _clear_message(self):
+        self.message = ''
 
     def get_trig(self, evids, net='%', sta='%', chan='%', loc='%', radius=None,  data_format='sac', as_stream=True, keep_files=False):
         if not self.connected:
@@ -217,9 +227,6 @@ class STPClient:
         if radius is not None:
             base_cmd += ' -radius {}'.format(radius)
         
-        
-        #cmd += ' '.join([str(e) for e in evids])
-        #cmd += '\n'
         result = {}
         for ev in evids:
             cmd = "{} {}\n".format(base_cmd, ev)
@@ -269,21 +276,44 @@ class STPClient:
         self.socket.send(cmd.encode('utf-8'))
         self._receive_data()
         
-        self._end_command()        
-    
-
+                
     def get_events(self, evids=None, times=None, lats=None, lons=None, mags=None, depths=None, types=None, gtypes=None, output_file=None, is_xml=False):
         if not self.connected:
             print('STP is not connected')
             return None
-        return self._get_event_phase('event', evids, times, lats, lons, mags, depths, types, gtypes, output_file)
+        self._get_event_phase('event', evids, times, lats, lons, mags, depths, types, gtypes, output_file)
+        catalog = Catalog()
+        for line in self.message.splitlines():
+            if not line.startswith('#'):
+                catalog.append(utils.make_event(line))
+        self._end_command()
+        return catalog
 
-
+        
     def get_phases(self, evids=None, times=None, lats=None, lons=None, mags=None, depths=None, types=None, gtypes=None, output_file=None, is_xml=False):
         if not self.connected:
             print('STP is not connected')
             return None
         self._get_event_phase('phase', evids, times, lats, lons, mags, depths, types, gtypes, output_file)
+        evid_pattern = re.compile('^[1-9]+')
+        catalog = Catalog()
+        event = None
+        for line in self.message.splitlines():
+            line = line.strip()
+            if not line.startswith('#'):
+                #print(evid_pattern.match(line))
+                if evid_pattern.match(line) is not None:
+                    #print('Creating event')
+                    event = utils.make_event(line)
+                    catalog.append(event)
+                else:
+                    #print('Creating phase pick')
+                    pick = utils.make_pick(line.strip(), event.origins[0].time)
+                    if event is None:
+                        raise Exception('Error parsing phase output')
+                    event.picks.append(pick)
+        self._end_command()    
+        return catalog
 
 
     def disconnect(self):
