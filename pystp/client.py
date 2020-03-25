@@ -14,6 +14,9 @@ VALID_FORMATS = ['sac', 'mseed', 'seed', 'ascii', 'v0', 'v1']
 class STPClient:
     
     def __init__(self, host, port, output_dir='.', verbose=False):
+        """ Set up a new STPClient object.
+        """
+        
         self.host = host
         self.port = port
         self.socket = None
@@ -28,7 +31,7 @@ class STPClient:
         
 
     def _send_sample(self):
-        """ Sends the integer 2 to the server
+        """ Send the integer 2 to the server
         to verify endianness.
         """
 
@@ -37,7 +40,7 @@ class STPClient:
         
 
     def _read_message(self):
-        """ Reads text sent from the STP server delimited
+        """ Read and store text sent from the STP server delimited
         by MESS and ENDmess.
         """
 
@@ -53,6 +56,9 @@ class STPClient:
 
 
     def _process_error(self, fields):
+        """ Display STP error messages.
+        """
+
         err_msg = ' '.join(fields[1:])
         print(err_msg)
         
@@ -70,8 +76,12 @@ class STPClient:
             if words[0] == b'ERR':
                 self._process_error(words)
         self.fdr.readline()   # Read the b'OVER\n'
-        
+
+
     def _receive_data(self):
+        """ Process results sent by the STP server.
+        """
+
         if self.verbose:
             print("STPClient._receive_data()")
         while True:
@@ -137,7 +147,7 @@ class STPClient:
 
 
     def connect(self, show_motd=True):
-        """ Open socket connection to STP server.
+        """ Connect to STP server.
         """
 
         if self.connected:
@@ -163,6 +173,9 @@ class STPClient:
 
 
     def _send_data_command(self, cmd, data_format, as_stream=True, keep_files = False):
+        """ Send a waveform request command process the results.
+        """
+
         data_format = data_format.lower()
         if data_format not in VALID_FORMATS:
             raise Exception('Invalid data format')
@@ -202,6 +215,7 @@ class STPClient:
     def _end_command(self):
         """ Perform cleanup after an STP command is ended.
         """
+
         if self.fdout:
             self.fdout.close()
         self.recent_files.clear()
@@ -211,6 +225,9 @@ class STPClient:
         self.message = ''
 
     def get_trig(self, evids, net='%', sta='%', chan='%', loc='%', radius=None,  data_format='sac', as_stream=True, keep_files=False):
+        """ Download triggered waveforms from STP using the TRIG command.
+        """
+
         if not self.connected:
             print('STP is not connected')
             return None
@@ -242,7 +259,8 @@ class STPClient:
 
 
     def _get_event_phase(self, cmd, evids, times=None, lats=None, lons=None, mags=None, depths=None, types=None, gtypes=None, output_file=None, is_xml=False):
-        """ Handles the event and phase commands, which have similar syntax.
+        """ Helper function that handles the event and phase commands, 
+        which have similar syntax.
         """
 
         if output_file is not None:
@@ -278,6 +296,9 @@ class STPClient:
         
                 
     def get_events(self, evids=None, times=None, lats=None, lons=None, mags=None, depths=None, types=None, gtypes=None, output_file=None, is_xml=False):
+        """ Download events from STP using the EVENT command.
+        """
+
         if not self.connected:
             print('STP is not connected')
             return None
@@ -291,6 +312,9 @@ class STPClient:
 
         
     def get_phases(self, evids=None, times=None, lats=None, lons=None, mags=None, depths=None, types=None, gtypes=None, output_file=None, is_xml=False):
+        """ Download events and phase picks from STP using the PHASE command.
+        """
+
         if not self.connected:
             print('STP is not connected')
             return None
@@ -317,8 +341,9 @@ class STPClient:
 
 
     def disconnect(self):
-        """ Closes file handles and socket connection.
+        """ Disconnect from the STP server.
         """
+
         if self.fdr:
             self.fdr.close()
         if self.socket:
