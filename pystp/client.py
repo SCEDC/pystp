@@ -13,7 +13,7 @@ VALID_FORMATS = ['sac', 'mseed', 'seed', 'ascii', 'v0', 'v1']
 
 class STPClient:
     
-    def __init__(self, host, port, output_dir='.', verbose=False):
+    def __init__(self, host='stp.gps.caltech.edu', port=9999, output_dir='.', verbose=False):
         """ Set up a new STPClient object.
         """
         
