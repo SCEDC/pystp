@@ -221,7 +221,6 @@ class STPClient:
 
         if self.fdout:
             self.fdout.close()
-        self.recent_files.clear()
         self._clear_message()
 
     def _clear_message(self):
