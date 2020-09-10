@@ -25,7 +25,6 @@ class STPClient:
         self.output_dir = '.'
         self.message = ''  # Most recent message from the server
         self.motd = ''     # Message of the Day
-        self.recent_files = []   # List of most recently written files
         self.verbose = verbose
         self.connected = False
         
@@ -78,7 +77,7 @@ class STPClient:
         self.fdr.readline()   # Read the b'OVER\n'
 
 
-    def _receive_data(self):
+    def _receive_data(self, dir_lst=[], file_lst=[]):
         """ Process results sent by the STP server.
         """
 
@@ -112,12 +111,13 @@ class STPClient:
                 if not self.fdout:
                     print('Could not open {} for writing'.format(outfile))
                 else:
-                    self.recent_files.append(outfile)
+                    file_lst.append(outfile)
             elif line_words[0] == 'DIR':
                 # Create output directory
                 self.output_dir = os.path.join(self.output_dir, line_words[1])
                 if not os.path.isdir(self.output_dir):
                     os.mkdir(self.output_dir)
+                    dir_lst.append(self.output_dir)
             elif line_words[0] == 'MESS':
                 msg = self._read_message()
                 self.message += msg
@@ -125,9 +125,9 @@ class STPClient:
             
             elif line_words[0] == 'DATA':
                 ndata = int(line_words[1])
-                # TODO: Read ndata bytes from self.fdr
+                # Read ndata bytes.
                 data = self.fdr.read(ndata)
-                # Write to self.fdout
+                # Write ndata bytes to the output file handle.
                 if self.fdout:
                     self.fdout.write(data)
             elif line_words[0] == 'ENDdata':
@@ -172,8 +172,8 @@ class STPClient:
         self.connected = True
 
 
-    def _send_data_command(self, cmd, data_format, as_stream=True, keep_files = False):
-        """ Send a waveform request command process the results.
+    def _send_data_command(self, cmd, data_format, as_stream=True, keep_files=False):
+        """ Send a waveform request command and process the results.
         """
 
         data_format = data_format.lower()
@@ -181,16 +181,19 @@ class STPClient:
             raise Exception('Invalid data format')
         if self.verbose:
             print("data_format={} cmd={}".format(data_format, cmd))
+
+        file_lst = []
+        dir_lst = []
         self.socket.sendall('{}\n'.format(data_format).encode('utf-8'))
-        self._receive_data()
+        self._receive_data(dir_lst, file_lst)
         self.socket.sendall(cmd.encode('utf-8'))
-        self._receive_data()        
+        self._receive_data(dir_lst, file_lst)        
 
         waveform_stream = None
         if as_stream:
             waveform_stream = Stream()
             ntraces = 0
-            for f in self.recent_files:
+            for f in file_lst:
                 try:
                     if self.verbose:
                         print('Reading {}'.format(f))
@@ -245,10 +248,19 @@ class STPClient:
             base_cmd += ' -radius {}'.format(radius)
         
         result = {}
-        for ev in evids:
-            cmd = "{} {}\n".format(base_cmd, ev)
 
-            result[ev] = self._send_data_command(cmd, data_format, as_stream)
+        def request_event(evid):
+            cmd = "{} {}\n".format(base_cmd, evid)
+            result[evid] = self._send_data_command(cmd, data_format, as_stream, keep_files)
+
+        if isinstance(evids, list):
+            for ev in evids:
+                #cmd = "{} {}\n".format(base_cmd, ev)
+                #result[ev] = self._send_data_command(cmd, data_format, as_stream, keep_files)
+                request_event(ev)
+        else:
+            request_event(evids)
+        
         self._end_command()
         
         return result
