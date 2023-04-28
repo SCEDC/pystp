@@ -22,6 +22,7 @@ MAGTYPE_MAPPING = { 'b': 'Mb', \
                     'w': 'Mw', \
                     'h': 'Mh', \
                     'd': 'Md', \
+                    'un': 'M', \
                     'lr': 'Mlr'
                   }
 
