@@ -76,6 +76,7 @@ class STPClient:
                 self._process_error(words)
         self.fdr.readline()   # Read the b'OVER\n'
 
+        
 
     def _receive_data(self, dir_lst=[], file_lst=[]):
         """ Process results sent by the STP server.
@@ -146,6 +147,14 @@ class STPClient:
         self.output_dir = output_dir
 
 
+    def set_nevntmax(self, value=100):
+        """ Set the value of the nevntmax parameter, the maximum 
+        number of events returned by the event command.
+        """
+        self.socket.sendall('set nevntmax {}\n'.format(value).encode('utf-8'))
+        self.fdr.readline()
+    
+    
     def connect(self, show_motd=True):
         """ Connect to STP server.
         """
@@ -162,6 +171,7 @@ class STPClient:
        
         line = self.fdr.readline()
         if line != b'CONNECTED\n':
+            print(line)
             raise Exception('Failed to connect')
 
         self._send_sample()
