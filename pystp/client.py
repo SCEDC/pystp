@@ -122,7 +122,7 @@ class STPClient:
             elif line_words[0] == 'MESS':
                 msg = self._read_message()
                 self.message += msg
-                print(msg, end='')
+                #print(msg, end='')
             
             elif line_words[0] == 'DATA':
                 ndata = int(line_words[1])
@@ -180,7 +180,8 @@ class STPClient:
         if show_motd:
             print(self.motd, end='')
         self.connected = True
-
+        self._clear_message()
+    
 
     def _send_data_command(self, cmd, data_format, as_stream=True, keep_files=False):
         """ Send a waveform request command and process the results.
@@ -315,7 +316,49 @@ class STPClient:
         self.socket.send(cmd.encode('utf-8'))
         self._receive_data()
         
-                
+    
+    def get_eavail(self, evid, net='', sta='', chan='', loc='', format='s', as_list=True):
+        """ Get the available data for an event.
+        """
+
+        if not self.connected:
+            print('STP is not connected')
+            return None
+
+        cmd = 'eavail'
+       
+        if net != '':
+            cmd += ' -net {}'.format(net)
+        if sta != '':
+            cmd += ' -sta {}'.format(sta)
+        if chan != '':
+            cmd += ' -chan {}'.format(chan)
+        if loc != '':
+            cmd += ' -loc {}'.format(loc)
+        if format == 'l' or format == 'long':
+            cmd += ' -l'
+        
+        cmd += ' ' + str(evid)
+        cmd += '\n'
+        if self.verbose:
+            print(cmd)
+        self.socket.send(cmd.encode('utf-8'))
+        self._receive_data()
+
+        if as_list:
+            # Remove the comment with the number of seismograms, which will not be part of the list.
+            self.message = self.message.split('#')[0]
+            
+        if as_list and (format == 'l' or format== 'long'):
+            eavail_listing = [line.strip().split() for line in self.message.split('\n') if not line.strip().startswith('#') and not line == '']
+        elif as_list and (format == 's' or format == 'short'):
+            eavail_listing = [line.strip().split('.') for line in self.message.split() if not line.strip().startswith('#') and not line == '']
+        else:
+            eavail_listing = self.message
+        self._end_command()
+        return eavail_listing
+    
+            
     def get_events(self, evids=None, times=None, lats=None, lons=None, mags=None, depths=None, types=None, gtypes=None, output_file=None, is_xml=False):
         """ Download events from STP using the EVENT command.
         """
