@@ -82,6 +82,9 @@ def make_pick(pick_str, origin_time):
     (net, sta, chan, loc) = fields[:4]
     new_pick.waveform_id = WaveformStreamID(network_code=net, station_code=sta, channel_code=chan, location_code=loc)
     
+    # Set phase_hint to the wave type.
+    new_pick.phase_hint = fields[7]
+    
     # Determine polarity from first motion.
     polarity = POLARITY_MAPPING[fields[8][0]]
     if polarity == '':
