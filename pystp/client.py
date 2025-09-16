@@ -16,7 +16,6 @@ class STPClient:
     def __init__(self, host='stp.gps.caltech.edu', port=9999, output_dir='.', verbose=False):
         """ Set up a new STPClient object.
         """
-        
         self.host = host
         self.port = port
         self.socket = None
@@ -88,7 +87,6 @@ class STPClient:
             line = self.fdr.readline()
             if self.verbose:
                 print('_receive_data: Received line ', line)
-                
             if not line:
                 self.output_dir = '.'
                 break
@@ -154,6 +152,22 @@ class STPClient:
         self.socket.sendall('set nevntmax {}\n'.format(value).encode('utf-8'))
         self.fdr.readline()
     
+    def set_gaincorr(self, value='on'):
+        """ Set the value of the gain parameter to on or off.
+        """
+        self.socket.sendall('gain {}\n'.format(value).encode('utf-8'))
+        line = self.fdr.readline()
+        if line == b'MESS\n':
+            self.message = self._read_message()
+        else:
+            words = line.split()
+            if words[0] == b'ERR':
+                self._process_error(words)
+        self.fdr.readline()   # Read the b'OVER\n'
+        if self.verbose:
+            print (self.message)
+        self._clear_message()
+
     
     def connect(self, show_motd=True):
         """ Connect to STP server.
@@ -273,6 +287,31 @@ class STPClient:
         
         self._end_command()
         
+        return result
+
+    def get_window(self, start_time, end_time, net='%', sta='%', chan='%', loc='%', data_format='sac', as_stream=True, keep_files=False):
+        """ Download continuous waveforms from STP using the WIND command.
+        positional params expected by WIND:
+            net sta chan loc time_on, time_off
+        """
+
+        if not self.connected:
+            print('STP is not connected')
+            return None
+        if not start_time or not end_time:
+            print ('Time range is required')
+            return None
+        # at least one of net, sta, chan is required
+        if net=='%' and sta=='%' and chan=='%':
+            print ('At least one of net/sta/chan is required.' )
+            return None
+
+        start = start_time.strftime("%Y/%m/%d,%H:%M:%S.%f")
+        end = end_time.strftime("%Y/%m/%d,%H:%M:%S.%f")
+
+        base_cmd = f'wind {net} {sta} {chan} {loc} {start} {end} \n'
+        result = self._send_data_command(base_cmd, data_format, as_stream, keep_files)
+        self._end_command()
         return result
 
 
