@@ -130,6 +130,8 @@ class STPClient:
                 if self.fdout:
                     self.fdout.write(data)
             elif line_words[0] == 'ENDdata':
+                if self.fdout:
+                    self.fdout.close()
                 continue
             elif line_words[0] == 'ERR':
                 self._process_error(line_words)
