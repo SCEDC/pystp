@@ -5,8 +5,8 @@ from setuptools import setup, find_packages
 
 setup(
     name = "PySTP",
-    version = "0.1",
+    version = "0.1.1",
     packages = find_packages(),
     setup_requires = ["wheel"],
-    install_requires = ["obspy>=1.2.0"]
+    install_requires = ["obspy>=1.5.2"]
     )
